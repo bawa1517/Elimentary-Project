@@ -1,3 +1,4 @@
+import os
 import pandas as pd
 import matplotlib.pyplot as plt
 import streamlit as st
@@ -38,7 +39,10 @@ def action_rule(ecl: float, med: float) -> str:
 
 def main():
     st.title("Expected Credit Loss (ECL) Dashboard")
-    ensure_default_users()
+    # Seed demo users only if explicitly enabled via env var
+    seed = str(os.environ.get("SEED_DEFAULT_USERS", "")).strip().lower()
+    if seed in {"1", "true", "yes"}:
+        ensure_default_users()
 
     # Authentication gate
     if "user" not in st.session_state:
@@ -62,7 +66,6 @@ def main():
             if st.button("Create", use_container_width=True):
                 ok = create_user(u2, p2, role2)
                 st.success("Account created. Please login.") if ok else st.error("Username exists or invalid input.")
-        st.info("Default accounts: analyst1 / Analyst@123, cro1 / CRO@123")
         return
 
     user = st.session_state["user"]
