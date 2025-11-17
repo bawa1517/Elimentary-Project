@@ -3,3 +3,8 @@ __pycache__/
 reports/
 insights.csv
 .vscode/
+
+# Do not commit local API keys or secrets
+config.json
+.env
+.streamlit/secrets.toml
