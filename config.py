@@ -5,6 +5,15 @@ CONFIG_PATH = "config.json"
 
 
 def get_api_key() -> str:
+    # Prefer Streamlit Cloud secrets if available
+    try:
+        import streamlit as st  # local import to avoid hard dep in non-UI contexts
+        s = str(st.secrets.get("GEMINI_API_KEY", "")).strip()
+        if s:
+            return s
+    except Exception:
+        pass
+    # Fallback to environment variable
     key = os.environ.get("GEMINI_API_KEY", "").strip()
     if key:
         return key
@@ -36,4 +45,3 @@ def set_api_key(key: str) -> bool:
         return True
     except Exception:
         return False
-
