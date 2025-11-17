@@ -1,8 +1,7 @@
-import os
 import requests
+from config import get_api_key
 
 API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent"
-API_KEY = os.environ.get("GEMINI_API_KEY", "")
 
 
 def get_insight(sel_intent, sel_gender, top_segments, median) -> str:
@@ -17,16 +16,17 @@ def get_insight(sel_intent, sel_gender, top_segments, median) -> str:
     ]
     payload = {"contents": [{"parts": parts}]}
     try:
-        if not API_KEY:
-            return "No insight available"
+        api_key = get_api_key()
+        if not api_key:
+            return "No insight available (missing API key)"
         r = requests.post(
             API_URL,
-            headers={"Content-Type": "application/json", "X-goog-api-key": API_KEY},
+            headers={"Content-Type": "application/json", "X-goog-api-key": api_key},
             json=payload,
             timeout=10,
         )
         if not r.ok:
-            return "No insight available"
+            return f"No insight available (HTTP {r.status_code})"
         js = r.json()
         return (
             js.get("candidates", [{}])[0]

@@ -1,0 +1,6 @@
+username,password_hash,role,segments_json
+analyst1,a1205a5c10b5f96929efd9230890b238f3ba07b76641d8b96ac814eef869d8a5,analyst,"{""*"": [""*""]}"
+cro1,e0bc3997c7431bd055d0fa185815c18d5f7c5a5261f852ba62c63d4493391945,cro,"{""*"": [""*""]}"
+1234,f44ceb062e35dfeea6ed7f8524d53bb0bff19f553e25cae7ef4850e4185ccbba,analyst,"{""*"": [""*""]}"
+analyst2,69986a4f67570c9d049756b9714411d3b939b31a663e5544c9effe6e0dc445ff,analyst,"{""*"": [""*""]}"
+cro2,161177d0aac1cf17c797aa32c20611f4dd2ae4ef78ff118e1d62b07086b23768,cro,"{""*"": [""*""]}"

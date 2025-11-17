@@ -5,7 +5,17 @@ from data import load_clean
 from pd_model import build_pd
 from ecl import add_ecl, aggregate
 from ai import get_insight
-from storage import save_report, list_reports, load_report, save_insight, list_insights, update_insight
+from config import set_api_key, get_api_key
+from auth import ensure_default_users, verify_login, create_user, list_users, update_segments
+from storage import (
+    save_report,
+    list_reports,
+    load_report,
+    save_insight,
+    list_insights,
+    update_insight,
+    list_reports_for_user,
+)
 
 st.set_page_config(page_title="ECL Dashboard", layout="centered")
 
@@ -28,15 +38,57 @@ def action_rule(ecl: float, med: float) -> str:
 
 def main():
     st.title("Expected Credit Loss (ECL) Dashboard")
+    ensure_default_users()
+
+    # Authentication gate
+    if "user" not in st.session_state:
+        tab1, tab2 = st.tabs(["Login", "Create account"])
+        with tab1:
+            st.subheader("Login")
+            u = st.text_input("User ID")
+            p = st.text_input("Password", type="password")
+            if st.button("Login", use_container_width=True):
+                user = verify_login(u, p)
+                if user:
+                    st.session_state["user"] = user
+                    st.rerun()
+                else:
+                    st.error("Invalid credentials")
+        with tab2:
+            st.subheader("Create Account")
+            u2 = st.text_input("New User ID")
+            p2 = st.text_input("New Password", type="password")
+            role2 = st.selectbox("Role", ["analyst", "cro"])
+            if st.button("Create", use_container_width=True):
+                ok = create_user(u2, p2, role2)
+                st.success("Account created. Please login.") if ok else st.error("Username exists or invalid input.")
+        st.info("Default accounts: analyst1 / Analyst@123, cro1 / CRO@123")
+        return
+
+    user = st.session_state["user"]
+    st.sidebar.markdown(f"**Logged in:** {user['username']} ({user['role']})")
+    if st.sidebar.button("Logout"):
+        del st.session_state["user"]
+        st.rerun()
+
     df = run_model_and_metrics()
 
     intents = sorted(df["loan_intent"].unique().tolist())
     genders = sorted(df["person_gender"].unique().tolist())
 
     st.sidebar.header("Filters")
-    sel_intent = st.sidebar.multiselect("Loan intent", intents, default=intents)
-    sel_gender = st.sidebar.multiselect("Gender", genders, default=genders)
+    # Role-based allowed segments (simple: '*' => all)
+    allowed = user.get("segments", {"*": ["*"]})
+    intents_allowed = intents if "*" in allowed or allowed.get("loan_intent", ["*"]) == ["*"] else [v for v in intents if v in allowed.get("loan_intent", [])]
+    genders_allowed = genders if "*" in allowed or allowed.get("person_gender", ["*"]) == ["*"] else [v for v in genders if v in allowed.get("person_gender", [])]
 
+    # Empty by default; users decide what to add
+    sel_intent = st.sidebar.multiselect("Loan intent", intents_allowed, default=[])
+    sel_gender = st.sidebar.multiselect("Gender", genders_allowed, default=[])
+
+    if not sel_intent or not sel_gender:
+        st.info("Select loan intent and gender to see ECL results.")
+        return
     f = df[df["loan_intent"].isin(sel_intent) & df["person_gender"].isin(sel_gender)]
     if f.empty:
         st.warning("No data for current selections.")
@@ -50,7 +102,7 @@ def main():
     col1, col2 = st.columns(2)
     with col1:
         if st.button("Save ECL report", use_container_width=True):
-            rid = save_report(g, med)
+            rid = save_report(g, med, saved_by=user["username"])
             st.success(f"Report saved: {rid}")
             st.session_state["last_rid"] = rid
     with col2:
@@ -71,12 +123,30 @@ def main():
     st.pyplot(fig, clear_figure=True)
 
     st.subheader("AI Insight")
+    # Settings for API key (only show if no key stored)
+    cur = get_api_key()
+    if not cur:
+        with st.expander("Settings: AI API"):
+            with st.form("api_key_form"):
+                new_key = st.text_input("Gemini API key", value="", type="password")
+                submitted = st.form_submit_button("Save API key")
+                if submitted:
+                    ok = set_api_key(new_key)
+                    if ok:
+                        st.success("Saved")
+                        st.rerun()
+                    else:
+                        st.error("Save failed")
+
     top = g.sort_values("ecl", ascending=False).head(5)
     txt = get_insight(sel_intent, sel_gender, top.to_dict(orient="records"), med)
-    st.write(txt)
+    if isinstance(txt, str):
+        st.markdown(txt)
+    else:
+        st.markdown(str(txt))
 
     st.subheader("Past Reports")
-    rlist = list_reports()
+    rlist = list_reports() if user["role"] == "cro" else list_reports_for_user(user["username"])  
     if rlist.empty:
         st.info("No saved reports yet.")
     else:
@@ -85,18 +155,35 @@ def main():
             rdf = load_report(rid_sel)
             st.dataframe(rdf)
 
-    st.subheader("CRO Review")
-    ins = list_insights()
-    if ins.empty:
-        st.info("No insights saved yet.")
-    else:
-        st.dataframe(ins)
-        iid_sel = st.selectbox("Select insight to review", ins["iid"].astype(str).tolist())
-        dec = st.selectbox("Decision", ["approve", "reject", "defer"])  # CRO decision
-        cnote = st.text_input("CRO note")
-        if st.button("Update decision", use_container_width=True):
-            ok = update_insight(iid_sel, dec, cnote)
-            st.success("Updated") if ok else st.error("Update failed")
+    if user["role"] == "cro":
+        st.subheader("CRO Review")
+        ins = list_insights()
+        if ins.empty:
+            st.info("No insights saved yet.")
+        else:
+            st.dataframe(ins)
+            iid_sel = st.selectbox("Select insight to review", ins["iid"].astype(str).tolist())
+            dec = st.selectbox("Decision", ["approve", "reject", "defer"])  # CRO decision
+            cnote = st.text_input("CRO note")
+            if st.button("Update decision", use_container_width=True):
+                ok = update_insight(iid_sel, dec, cnote)
+                st.success("Updated") if ok else st.error("Update failed")
+
+        st.subheader("Manage Analyst Access")
+        users = list_users()
+        analysts = users[users["role"] == "analyst"]["username"].tolist() if not users.empty else []
+        if not analysts:
+            st.info("No analysts found.")
+        else:
+            target = st.selectbox("Select analyst", analysts)
+            intents = sorted(df["loan_intent"].unique().tolist())
+            genders = sorted(df["person_gender"].unique().tolist())
+            allow_intents = st.multiselect("Allow loan intents", intents, default=intents)
+            allow_genders = st.multiselect("Allow genders", genders, default=genders)
+            if st.button("Save access", use_container_width=True):
+                segs = {"loan_intent": allow_intents, "person_gender": allow_genders}
+                ok = update_segments(target, segs)
+                st.success("Access updated") if ok else st.error("Update failed")
 
 
 if __name__ == "__main__":
