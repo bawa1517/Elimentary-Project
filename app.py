@@ -23,7 +23,15 @@ st.set_option("client.showErrorDetails", False)
 
 
 def _format_label(val: str) -> str:
-    s = str(val).replace("_", " ").strip()
+    s = str(val).strip()
+    norm = s.lower().replace("_", "").replace(" ", "")
+    special = {
+        "debtconsolidation": "Debt Consolidation",
+        "homeimprovement": "Home Improvement",
+    }
+    if norm in special:
+        return special[norm]
+    s = s.replace("_", " ")
     return s.title()
 
 
