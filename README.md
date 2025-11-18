@@ -54,11 +54,24 @@ pip install -r requirements.txt
 streamlit run app.py
 ```
 
+### Secrets (Local, not committed)
+- Create a `.env` file (gitignored) with your key:
+  - `GEMINI_API_KEY=your_gemini_key`
+- Alternatively, use the in-app "Settings: AI API" expander to save the key; it writes to `config.json` (also gitignored).
+- Optional: `SEED_DEFAULT_USERS=true` to auto-create demo accounts locally.
+
+### Secrets (Streamlit Cloud)
+- Add secrets in the app’s Settings → Secrets:
+  - `GEMINI_API_KEY = "your_gemini_key"`
+  - `SEED_DEFAULT_USERS = "false"` for production
+ - No secrets are stored in the repo; the app reads from Streamlit secrets first, then environment, then `.env`/`config.json`.
+
 ## Deployment (Render)
 - Create a new Web Service from your GitHub repo.
 - Build: `pip install -r requirements.txt`
 - Start: `streamlit run app.py --server.port $PORT --server.address 0.0.0.0`
 - Optional env var: `GEMINI_API_KEY` (update `ai.py` to read from env for production).
+  - This repo already reads the key from Streamlit Secrets, env vars, `.env`, or `config.json`.
 
 ## Security & Governance
 - No PII stored; only aggregated segments and audit notes.
@@ -72,4 +85,3 @@ streamlit run app.py
 
 ## License
 Internal/educational use. Adapt as needed for production.
-
