@@ -61,7 +61,7 @@ def create_user(username: str, password: str, role: str, segments: dict | None =
     return True
 
 
-def verify_login(username: str, password: str) -> dict | None:
+def verify_login(username: str, password: str, role: str | None = None) -> dict | None:
     _ensure_users_file()
     df = pd.read_csv(USERS_PATH)
     m = df["username"].astype(str).str.lower() == str(username).strip().lower()
@@ -69,6 +69,9 @@ def verify_login(username: str, password: str) -> dict | None:
         return None
     row = df[m].iloc[0]
     if str(row["password_hash"]) != _hash(password):
+        return None
+    # If role is provided, enforce it
+    if role is not None and str(row["role"]).strip().lower() != str(role).strip().lower():
         return None
     try:
         seg = json.loads(str(row["segments_json"]))

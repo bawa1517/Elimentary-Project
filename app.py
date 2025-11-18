@@ -19,6 +19,12 @@ from storage import (
 )
 
 st.set_page_config(page_title="ECL Dashboard", layout="centered")
+st.set_option("client.showErrorDetails", False)
+
+
+def _format_label(val: str) -> str:
+    s = str(val).replace("_", " ").strip()
+    return s.title()
 
 
 @st.cache_data(show_spinner=False)
@@ -51,8 +57,10 @@ def main():
             st.subheader("Login")
             u = st.text_input("User ID")
             p = st.text_input("Password", type="password")
+            role_disp = st.selectbox("Role", ["Analyst", "CRO"])  # enforce role on login
+            role_val = "analyst" if role_disp == "Analyst" else "cro"
             if st.button("Login", use_container_width=True):
-                user = verify_login(u, p)
+                user = verify_login(u, p, role_val)
                 if user:
                     st.session_state["user"] = user
                     st.rerun()
@@ -62,14 +70,24 @@ def main():
             st.subheader("Create Account")
             u2 = st.text_input("New User ID")
             p2 = st.text_input("New Password", type="password")
-            role2 = st.selectbox("Role", ["analyst", "cro"])
+            role2_disp = st.selectbox("Role", ["Analyst", "CRO"])  # clean labels
+            role2 = "analyst" if role2_disp == "Analyst" else "cro"
             if st.button("Create", use_container_width=True):
                 ok = create_user(u2, p2, role2)
-                st.success("Account created. Please login.") if ok else st.error("Username exists or invalid input.")
+                if ok:
+                    new_user = verify_login(u2, p2, role2)
+                    if new_user:
+                        st.session_state["user"] = new_user
+                        st.success("Account created. Logging you in...")
+                        st.rerun()
+                    else:
+                        st.success("Account created. Please login.")
+                else:
+                    st.error("Username exists or invalid input.")
         return
 
     user = st.session_state["user"]
-    st.sidebar.markdown(f"**Logged in:** {user['username']} ({user['role']})")
+    st.sidebar.markdown(f"**Logged in:** {user['username']} ({str(user['role']).upper()})")
     if st.sidebar.button("Logout"):
         del st.session_state["user"]
         st.rerun()
@@ -86,8 +104,8 @@ def main():
     genders_allowed = genders if "*" in allowed or allowed.get("person_gender", ["*"]) == ["*"] else [v for v in genders if v in allowed.get("person_gender", [])]
 
     # Empty by default; users decide what to add
-    sel_intent = st.sidebar.multiselect("Loan intent", intents_allowed, default=[])
-    sel_gender = st.sidebar.multiselect("Gender", genders_allowed, default=[])
+    sel_intent = st.sidebar.multiselect("Loan Intent", intents_allowed, default=[], format_func=_format_label)
+    sel_gender = st.sidebar.multiselect("Gender", genders_allowed, default=[], format_func=_format_label)
 
     if not sel_intent or not sel_gender:
         st.info("Select loan intent and gender to see ECL results.")
@@ -142,11 +160,11 @@ def main():
                         st.error("Save failed")
 
     top = g.sort_values("ecl", ascending=False).head(5)
-    txt = get_insight(sel_intent, sel_gender, top.to_dict(orient="records"), med)
-    if isinstance(txt, str):
-        st.markdown(txt)
-    else:
-        st.markdown(str(txt))
+    try:
+        txt = get_insight(sel_intent, sel_gender, top.to_dict(orient="records"), med)
+        st.markdown(txt if isinstance(txt, str) else str(txt))
+    except Exception:
+        st.info("Insight temporarily unavailable. Please try again later.")
 
     st.subheader("Past Reports")
     rlist = list_reports() if user["role"] == "cro" else list_reports_for_user(user["username"])  
