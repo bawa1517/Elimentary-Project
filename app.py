@@ -55,9 +55,9 @@ def main():
         tab1, tab2 = st.tabs(["Login", "Create account"])
         with tab1:
             st.subheader("Login")
-            u = st.text_input("User ID")
-            p = st.text_input("Password", type="password")
-            role_disp = st.selectbox("Role", ["Analyst", "CRO"], key="login_role")  # enforce role on login
+            u = st.text_input("User ID", key="login_user")
+            p = st.text_input("Password", type="password", key="login_pass")
+            role_disp = st.selectbox("Role (Login)", ["Analyst", "CRO"], key="login_role_select")  # enforce role on login
             role_val = "analyst" if role_disp == "Analyst" else "cro"
             if st.button("Login", use_container_width=True):
                 user = verify_login(u, p, role_val)
@@ -68,9 +68,9 @@ def main():
                     st.error("Invalid credentials")
         with tab2:
             st.subheader("Create Account")
-            u2 = st.text_input("New User ID")
-            p2 = st.text_input("New Password", type="password")
-            role2_disp = st.selectbox("Role", ["Analyst", "CRO"], key="create_role")  # clean labels
+            u2 = st.text_input("New User ID", key="create_user")
+            p2 = st.text_input("New Password", type="password", key="create_pass")
+            role2_disp = st.selectbox("Role (Create)", ["Analyst", "CRO"], key="create_role_select")  # clean labels
             role2 = "analyst" if role2_disp == "Analyst" else "cro"
             if st.button("Create", use_container_width=True):
                 ok = create_user(u2, p2, role2)
